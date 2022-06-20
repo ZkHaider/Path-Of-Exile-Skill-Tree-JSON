@@ -1,0 +1,62 @@
+#!/bin/bash
+
+## Set our flags
+ROOT_DIR="$(pwd)"
+IS_LUA_ROCKS_INSTALLED=false
+IS_JSON_LUA_INSTALLED=false
+PATH_OF_BUILDING_GIT_URL="https://github.com/PathOfBuildingCommunity/PathOfBuilding.git"
+PATH_OF_EXILE_VERSION="3_18" # Based on folder structure inside PathOfBuilding
+
+## Check if git is installed we need this to clone the repo for PathOfBuilding
+if ! [[ "$(command -v git)" ]]; then
+  echo "git is not installed. Please install git. See: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git"
+  exit 1
+fi
+
+## Check if home brew is installed if not then let the user know to install it 
+if ! [[ "$(command -v brew)" ]]; then
+  echo "Homebrew is not installed please install it."
+  exit 1
+fi
+
+## Check if luarocks is installed if not exit out
+if brew ls --versions luarocks > /dev/null; then
+  IS_LUA_ROCKS_INSTALLED=true
+fi
+
+if ! [[ IS_LUA_ROCKS_INSTALLED ]]; then
+  echo "luarocks is installed, please install it via `brew install luarocks`"
+  exit 1
+fi
+
+## Check if json-lua is installed as a dependency for luarocks, if not tell the user we need it
+if luarocks show json-lua > /dev/null 2>&1; then 
+  IS_JSON_LUA_INSTALLED=true
+fi
+
+if ! [[ IS_JSON_LUA_INSTALLED ]]; then
+  echo "json-lua is not installed as a dependency for luarocks, please install it via `luarocks install json-lua`"
+  exit 1
+fi
+
+## Now that we've ensured all dependencies are installed go ahead and clone Path of Building and retrieve the tree.lua file 
+if [ -d "$ROOT_DIR/PathOfBuilding" ]; then 
+  # Make sure to remove previous directory if present
+  rm -rf PathOfBuilding
+fi
+git clone $PATH_OF_BUILDING_GIT_URL PathOfBuilding
+
+## Copy the tree.lua file into the root directory
+cp "$ROOT_DIR/PathOfBuilding/src/TreeData/$PATH_OF_EXILE_VERSION/tree.lua" "$ROOT_DIR/tree.lua"
+
+## Now that we've ensured all dependencies are installed and we've got the lua data file go ahead and run the lua script.
+lua convert_to_json.lua
+
+## Make it pretty printed
+PATH_OF_EXILE_TREE_JSON_FILE="path_of_exile_skill_tree_v${PATH_OF_EXILE_VERSION}.json"
+cat "$ROOT_DIR/tree.json" | json_pp > "$ROOT_DIR/$PATH_OF_EXILE_TREE_JSON_FILE"
+
+## Clean up files
+rm -rf PathOfBuilding
+rm -f tree.lua
+rm -f tree.json
